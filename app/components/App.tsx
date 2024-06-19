@@ -12,15 +12,36 @@ import {
   MicrophoneState,
   useMicrophone,
 } from "../context/MicrophoneContextProvider";
-import Visualizer from "./Visualizer";
 
+import { type LiveSchema } from "@deepgram/sdk";
+import Visualizer from "./Visualizer";
+const defaultOptions = {
+  model: "nova-2",
+  language: "it",
+  interim_results: true,
+  smart_format: true,
+  filler_words: true,
+  utterance_end_ms: 3000,
+};
 const App: () => JSX.Element = () => {
   const [caption, setCaption] = useState<string | undefined>(
     "Powered by Deepgram"
   );
+  const [options, setOptions] = useState<LiveSchema>(
+    typeof window !== "undefined"
+      ? localStorage.getItem("options")
+        ? JSON.parse(localStorage.getItem("options") as string)
+        : defaultOptions
+      : defaultOptions
+  );
   const { connection, connectToDeepgram, connectionState } = useDeepgram();
-  const { setupMicrophone, microphone, startMicrophone, microphoneState } =
-    useMicrophone();
+  const {
+    setupMicrophone,
+    microphone,
+    startMicrophone,
+    microphoneState,
+    stopMicrophone,
+  } = useMicrophone();
   const captionTimeout = useRef<any>();
   const keepAliveInterval = useRef<any>();
 
@@ -31,13 +52,7 @@ const App: () => JSX.Element = () => {
 
   useEffect(() => {
     if (microphoneState === MicrophoneState.Ready) {
-      connectToDeepgram({
-        model: "nova-2",
-        interim_results: true,
-        smart_format: true,
-        filler_words: true,
-        utterance_end_ms: 3000,
-      });
+      connectToDeepgram(options);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [microphoneState]);
@@ -45,7 +60,6 @@ const App: () => JSX.Element = () => {
   useEffect(() => {
     if (!microphone) return;
     if (!connection) return;
-
     const onData = (e: BlobEvent) => {
       connection?.send(e.data);
     };
@@ -110,6 +124,27 @@ const App: () => JSX.Element = () => {
   return (
     <>
       <div className="flex h-full antialiased">
+        <form className="flex flex-col w-1/4 h-full bg-gray-900 text-white z-10 overflow-y-auto">
+          <textarea
+            className="h-full p-4 text-sm bg-gray-800 text-white"
+            value={JSON.stringify(options, null, 2)}
+            onChange={(e) => {
+              setOptions(JSON.parse(e.target.value));
+            }}
+          />
+          <button
+           className="bg-red-500 text-white p-4 w-full text-center"
+            onClick={() => {
+              localStorage.setItem("options", JSON.stringify(options));
+              alert("Options updated");
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            }}
+          >
+            Update Options
+          </button>
+        </form>
         <div className="flex flex-row h-full w-full overflow-x-hidden">
           <div className="flex flex-col flex-auto h-full">
             {/* height 100% minus 8rem */}
